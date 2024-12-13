@@ -2,7 +2,7 @@ from dash import Dash, html, dash_table, dcc, callback, Output, Input
 import dash_bootstrap_components as dbc
 from threading import Timer
 import webbrowser
-from pypdf import PdfReader 
+import pymupdf
 import pandas as pd
 import plotly.express as px
 import os
@@ -13,65 +13,59 @@ app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 def load_pdf(pdf_name):
     
-    reader = PdfReader(pdf_name) 
-    text_raw = ""
-    for i in range(len(reader.pages)) :
-        text_raw += reader.pages[i].extract_text()
-    text_divided = text_raw.split('\n')
+    doc = pymupdf.open(pdf_name) 
+    text_divided = []
+    for page in doc:
+        content = page.get_text("dict")             # Stacked dictionary object
+        for block in content["blocks"]:             # Blocks are the top hierarchy
+            if block["type"] == 0 :                 # If text in block and no image
+                record_line = []
+                for line in block["lines"]:         # A text block consists of lines (single words)
+                    if line["dir"] == (1, 0):       # Keep only horizontal text
+                        for span in line["spans"]:  # span = text with identical properties
+                            record_line.append(span["text"])
+                text_divided.append(record_line)
+        break                                       # We only want page 1 for now
 
+
+    # Get the periode of time
+    for i in text_divided:
+        if 'Période du' in i :
+            date_full = i[2].split('/')
+            date_light = date_full[1] + ' ' + date_full[2]
+            break
+    
+    # Transform text to float
     def num_str_to_float(number_string):
         return float(number_string.replace('.', '').replace(',', '.'))
-
-
-    # get the periode of time
-    for i in text_divided:   
-        if 'Périodedu' in i :
-            date_full = i.split('Périodedu')[1].split('au')[0].split('/')
-            date_light = date_full[1] + ' ' + date_full[2]
-
+    
+    # Keep only lines with amount at the end
+    lines_amount = []
+    for line in text_divided:
+        try :
+            line[-1] = num_str_to_float(line[-1])
+            lines_amount.append(line)
+        except:
+            continue
+    
     # arrays to form the data frame
     array_description = []
     array_amount = []
+    for line_amount in lines_amount:
 
-    # boolean activators
-    record_brut =      0
-    record_imposable = 0
-    record_net =       0
-    for i in text_divided:
-
-        if 'Salairemensueldebase:€' in i :
-            #array_Type.append('Base')
-            #array_code.append(0)
-            #array_description.append('Salaire de base')
-            #array_amount.append(num_str_to_float(i.split('Salairemensueldebase:€')[1])) 
-            salaire = 0 #useless
-        elif 'CodeDescription JoursHeures Montants' in i :
-            record_brut = 1
-        elif 'montantbrut ' in i :
+        if 'montant brut' in line_amount :
             array_description.append(['0', 'Total brut', 'Brut_total'])
-            array_amount.append(num_str_to_float(i.split('montantbrut ')[1])) 
-            record_brut = 0
-            record_imposable = 1
-        elif 'imposable ' in i :
+            array_amount.append(line_amount[-1]) 
+        elif 'imposable' in line_amount :
             array_description.append(['1', 'Total imposable', 'Imposable_total'])
-            array_amount.append(num_str_to_float(i.split('imposable ')[1])) 
-            record_imposable = 0
-            record_net = 1
-        elif 'salairenet ' in i :
+            array_amount.append(line_amount[-1]) 
+        elif 'salaire net' in line_amount :
             array_description.append(['2', 'Total net', 'Net_total'])
-            array_amount.append(num_str_to_float(i.split('salairenet ')[1]))  
-            record_net = 0
+            array_amount.append(line_amount[-1]) 
+        elif len(line_amount[0]) == 4 :
+            array_description.append([line_amount[0], line_amount[1], 'N.A.'])
+            array_amount.append(line_amount[-1])
 
-        elif record_brut == 1:
-            array_description.append([i.split(' ')[0][0:4], i.split(' ')[0][4:], 'Brut'])
-            array_amount.append(num_str_to_float(i.split(' ')[-1]))
-        elif record_imposable == 1:
-            array_description.append([i.split(' ')[0][0:4], i.split(' ')[0][4:], 'Imposable'])
-            array_amount.append(num_str_to_float(i.split(' ')[-1]))
-        elif record_net == 1:
-            array_description.append([i.split(' ')[0][0:4], i.split(' ')[0][4:], 'Net'])
-            array_amount.append(num_str_to_float(i.split(' ')[-1]))
-    
     # Create empty array of correct length
     array_description_code = [0] * len(array_description)
     for i in range(len(array_description)):
@@ -82,8 +76,12 @@ def load_pdf(pdf_name):
 
 def load_excel(description, data):
 
-    data_excel = pd.read_excel('perdiems.xlsx', usecols='A,H,I', dtype={'Date':str,'Perdiem total':float,'Spent':float})
-
+    try :
+        data_excel = pd.read_excel('perdiems.xlsx', usecols='A,H,I', dtype={'Date':str,'Perdiem total':float,'Spent':float})
+    except:
+        print("No perdiems Excel file found.")
+        return(description, data)
+    
     # Modifiy excel date presentation to fit pandas dataframe
     list_date = data_excel['Date'].tolist()
     list_date = [date.split(' ')[0].split('-')[1] + ' ' + date.split(' ')[0].split('-')[0] for date in list_date]
@@ -217,7 +215,7 @@ def open_browser():
 def main():
     
     codes, descr, data = extract_data()
-
+    
     # App layout
     app.layout = [
         html.H1("Salary data"),
@@ -248,6 +246,7 @@ def main():
         fig = px.bar(data_graph)
         fig.update_layout(xaxis_title="Month", yaxis_title="Amount [€]")
         return fig
+    
 
 if __name__ == "__main__":
     main()
