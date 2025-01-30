@@ -194,7 +194,8 @@ def extract_data():
     # Create legend from description array
     codes = []
     descr = []
-    for i in range(len(description)-1):
+    mean  = data.mean(axis=1)
+    for i in range(len(description)):
         codes.append(description[i][0])
         descr.append(description[i][1])
 
@@ -203,19 +204,23 @@ def extract_data():
     print(data)
 
     print()
+    print('---- Mean ----')
+    print(mean)
+
+    print()
     print('---- Description ----')
     for i in description:
         print(i)
 
-    return codes, descr, data
+    return codes, descr, data, mean
 
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:8050/")
 
 def main():
     
-    codes, descr, data = extract_data()
-    
+    codes, descr, data, mean = extract_data()
+
     # App layout
     app.layout = [
         html.H1("Salary data"),
@@ -225,7 +230,7 @@ def main():
                 dbc.Col([html.H2("Select option"),
                         dcc.Dropdown(
                             options=[{'label': k, 'value': v} for k, v in zip(descr, codes)],        
-                            value='2',
+                            value=['6'],
                             multi=True,
                             searchable=True,
                             maxHeight=400,
@@ -243,7 +248,15 @@ def main():
     )
     def update_graph(col_chosen):
         data_graph = data.loc[col_chosen].T
+        data_mean = mean.loc[col_chosen]
+
         fig = px.bar(data_graph)
+        
+        for col in col_chosen:
+            y_value = data_mean[col]
+            text_mean = str(col) + " : " + str("{:.2f}".format(y_value) + "€")
+            fig.add_hline(y=y_value, annotation_text=text_mean, annotation_position="bottom right")
+    
         fig.update_layout(xaxis_title="Month", yaxis_title="Amount [€]")
         return fig
     
