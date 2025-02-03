@@ -6,6 +6,7 @@ import pymupdf
 import pandas as pd
 import plotly.express as px
 import os
+import datetime
 
 # Initializing the app
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -32,7 +33,8 @@ def load_pdf(pdf_name):
     for i in text_divided:
         if 'Période du' in i :
             date_full = i[2].split('/')
-            date_light = date_full[1] + ' ' + date_full[2]
+            #date_light = date_full[1] + ' ' + date_full[2]
+            date_light = datetime.datetime(int(date_full[2]), int(date_full[1]), 1)
             break
     
     # Transform text to float
@@ -83,12 +85,10 @@ def load_excel(description, data):
         return(description, data)
     
     # Modifiy excel date presentation to fit pandas dataframe
-    list_date = data_excel['Date'].tolist()
-    list_date = [date.split(' ')[0].split('-')[1] + ' ' + date.split(' ')[0].split('-')[0] for date in list_date]
-
+    list_date = [datetime.datetime(int(date.split(' ')[0].split('-')[0]), int(date.split(' ')[0].split('-')[1]), 1) for date in data_excel['Date'].tolist()]
     list_perdiem = data_excel['Perdiem total'].tolist()
-    list_spent = data_excel['Spent'].tolist()
-    #('3', 'Mission perdiem', 'Net'), ('4', 'Mission spent', 'Net')
+    list_spent = data_excel['Spent'].tolist()    
+
     data_excel_clean = pd.DataFrame(data={list_date[0]:[list_perdiem[0], list_spent[0]]}, index=['3', '4'])
     for i in range(1, len(list_date)) :
         df2 = pd.DataFrame(data={list_date[i]:[list_perdiem[i], list_spent[i]]}, index=['3', '4'])
@@ -194,7 +194,6 @@ def extract_data():
     # Create legend from description array
     codes = []
     descr = []
-    mean  = data.mean(axis=1)
     for i in range(len(description)):
         codes.append(description[i][0])
         descr.append(description[i][1])
@@ -204,22 +203,18 @@ def extract_data():
     print(data)
 
     print()
-    print('---- Mean ----')
-    print(mean)
-
-    print()
     print('---- Description ----')
     for i in description:
         print(i)
 
-    return codes, descr, data, mean
+    return codes, descr, data
 
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:8050/")
 
 def main():
     
-    codes, descr, data, mean = extract_data()
+    codes, descr, data = extract_data()
 
     # App layout
     app.layout = [
@@ -227,42 +222,60 @@ def main():
         html.Hr(),
         dbc.Row(
             [
-                dbc.Col([html.H2("Select option"),
-                        dcc.Dropdown(
+                dbc.Col([html.H2("Select code to display"),
+                         dcc.Dropdown(
                             options=[{'label': k, 'value': v} for k, v in zip(descr, codes)],        
                             value=['6'],
                             multi=True,
                             searchable=True,
                             maxHeight=400,
-                            id='controls-and-radio-item')
+                            id='code-selection'),
+                        html.H2("Average"),
+                        dcc.RangeSlider(0, len(data.columns)-1, 1, value=[0, len(data.columns)-1], 
+                                        marks=None,
+                                        tooltip={"placement": "bottom",
+                                                 "always_visible": True}, 
+                                        allowCross=False,
+                                        id='slider-average')
                         ], style = {'margin-left':'10px', 'margin-top':'7px', 'margin-right':'10px'}),
                 dbc.Col(dcc.Graph(figure={}, id='controls-and-graph'), width = 9, style = {'margin-left':'5px', 'margin-top':'7px', 'margin-right':'5px'})
         ])
     ]
 
-
-    # Add controls to build the interaction
+    # callback for sdworx code selection
     @callback(
         Output(component_id='controls-and-graph', component_property='figure'),
-        Input(component_id='controls-and-radio-item', component_property='value')
+        Input(component_id='code-selection', component_property='value'),
+        Input(component_id='slider-average', component_property='value'),
     )
-    def update_graph(col_chosen):
-        data_graph = data.loc[col_chosen].T
-        data_mean = mean.loc[col_chosen]
+    def update_graph_code(codes_selected, dates_average):
 
-        fig = px.bar(data_graph)
+        data_graph = data.loc[codes_selected].transpose()
+
+        # manipulation to preset index datatype as datetime
+        data_graph['dates'] = pd.to_datetime(data_graph.index)
+        data_graph = data_graph.set_index('dates')
+        data_mean = data_graph.iloc[dates_average[0]:dates_average[1]+1].mean(axis=0)
         
-        for col in col_chosen:
-            y_value = data_mean[col]
-            text_mean = str(col) + " : " + str("{:.2f}".format(y_value) + "€")
-            fig.add_hline(y=y_value, annotation_text=text_mean, annotation_position="bottom right")
+        fig = px.bar(data_graph)
+
+        x0_average = data_graph.index[dates_average[0]]
+        x1_average = data_graph.index[dates_average[1]]
+        fig.add_vrect(x0=x0_average, x1=x1_average, 
+                      annotation_text="average", annotation_position="top left",
+                      fillcolor="grey", opacity=0.2, line_width=0)
+        
+        for code in codes_selected:
+            y_value = data_mean[code]
+            text_mean = str(code) + " : " + str("{:.2f}".format(y_value) + "€")
+            fig.add_hline(y=y_value, line_dash="dot", annotation_text=text_mean, annotation_position="top left")            
     
-        fig.update_layout(xaxis_title="Month", yaxis_title="Amount [€]")
+        fig.update_layout(yaxis_title="Amount [€]")
         return fig
     
 
 if __name__ == "__main__":
     main()
     Timer(1, open_browser).start()
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=True, use_reloader=True)
     
