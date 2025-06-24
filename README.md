@@ -23,13 +23,15 @@ All results are displayed via a local web interface with interactive graphs and 
 
 To use the project, organize your files as follows:
 
-Salary-analyzer/
+```
+salary/
 ├── salary_analysis.py # Main Python script
 ├── sdworks_JohnDoe/   # Folder containing SD Worx PDF salary sheets (the name of the files has no impact on the code)
 │ ├── January2024.pdf
 │ ├── February2024_part2.pdf
 │ └── ...
 ├── perdiems.xlsx # (Optional) Excel file with per diem and mission expenses
+```
 
 - The folder with salary PDFs **must begin with `sdworks_`** followed by the name of the person (e.g., `sdworks_AliceSmith`). If you have multiple folders starting with `sdworks_`, the program will let you choose the one to analyse. 
 - All PDF files inside that folder will be scanned but only the relevant ones will be used. The rest will not block the execution of the code. 
