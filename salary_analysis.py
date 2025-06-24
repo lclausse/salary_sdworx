@@ -1,6 +1,9 @@
 from dash import Dash, html, dash_table, dcc, callback, Output, Input
+from flask import Flask
 import dash_bootstrap_components as dbc
 from threading import Timer
+import time
+import threading
 import webbrowser
 import pymupdf
 import pandas as pd
@@ -9,7 +12,8 @@ import os
 import datetime
 
 # Initializing the app
-app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = Flask(__name__)
+app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP], server=server)
 
 
 def load_pdf(pdf_name):
@@ -79,7 +83,7 @@ def load_pdf(pdf_name):
 def load_excel(description, data):
 
     try :
-        data_excel = pd.read_excel('perdiems.xlsx', usecols='A,H,I', dtype={'Date':str,'Perdiem total':float,'Spent':float})
+        data_excel = pd.read_excel('perdiems.xlsx', usecols='A,H,M', dtype={'Date':str,'Perdiem total':float,'Spent':float})
     except:
         print("No perdiems Excel file found.")
         return(description, data)
@@ -87,7 +91,8 @@ def load_excel(description, data):
     # Modifiy excel date presentation to fit pandas dataframe
     list_date = [datetime.datetime(int(date.split(' ')[0].split('-')[0]), int(date.split(' ')[0].split('-')[1]), 1) for date in data_excel['Date'].tolist()]
     list_perdiem = data_excel['Perdiem total'].tolist()
-    list_spent = data_excel['Spent'].tolist()    
+    list_spent = data_excel['Spent'].tolist()
+    list_spent = [i * -1 for i in list_spent]
 
     data_excel_clean = pd.DataFrame(data={list_date[0]:[list_perdiem[0], list_spent[0]]}, index=['3', '4'])
     for i in range(1, len(list_date)) :
@@ -271,11 +276,10 @@ def main():
             fig.add_hline(y=y_value, line_dash="dot", annotation_text=text_mean, annotation_position="top left")            
     
         fig.update_layout(yaxis_title="Amount [€]")
-        return fig
-    
+        return fig 
 
 if __name__ == "__main__":
     main()
-    Timer(1, open_browser).start()
-    app.run(debug=True, use_reloader=True)
+    threading.Timer(1, open_browser).start()
+    app.run_server(debug=True, use_reloader=False)
     
