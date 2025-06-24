@@ -26,7 +26,7 @@ To use the project, organize your files as follows:
 ```
 salary/
 ├── salary_analysis.py # Main Python script
-├── sdworks_JohnDoe/   # Folder containing SD Worx PDF salary sheets (the name of the files has no impact on the code)
+├── sdworks_JohnDoe/   # Folder containing SD Worx PDF salary sheets
 │ ├── January2024.pdf
 │ ├── February2024_part2.pdf
 │ └── ...
@@ -34,6 +34,7 @@ salary/
 ```
 
 - The folder with salary PDFs **must begin with `sdworks_`** followed by the name of the person (e.g., `sdworks_AliceSmith`). If you have multiple folders starting with `sdworks_`, the program will let you choose the one to analyse. 
+- The name of the PDFs has no importance. 
 - All PDF files inside that folder will be scanned but only the relevant ones will be used. The rest will not block the execution of the code. 
 - The optional `perdiems.xlsx` file (if provided) will be included in the analysis.
 
