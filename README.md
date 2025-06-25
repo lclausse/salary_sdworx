@@ -15,6 +15,9 @@ All results are displayed via a local web interface with interactive graphs and 
 - Optional integration of mission-related expenses from Excel.
 - Visualizes salary breakdowns and expenses in a web browser.
 
+## Download SD Worx files
+
+To get the PDF files, you can export a zip folder from SD Worx. Go to your documents, select "Toutes les années" and "Fiche de paie" in the search tool the display the files as a list. You can then export them at once. Be careful to export as **separated files in compressed folder** and not as a merged document. 
 
 ## Folder Structure
 
@@ -40,7 +43,7 @@ project_folder_name/
 ## How to Use
 
 1. Place your SD Worx PDF salary sheets in a folder named `sdworks_<yourname>`.
-2. (Optional) Add your per diem Excel file as `perdiems.xlsx` in the main directory.
+2. (Optional) Add your per diem Excel file as `perdiems.xlsx` in the main directory and follow the same structure as `perdiems_template.xlsx`.
 3. Run the script:
  - The Windows executable: **`salary_analysis.exe`**
  - Or the Python source code: **`salary_analysis.py`** (you need python installed and the libraries)
